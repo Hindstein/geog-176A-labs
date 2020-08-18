@@ -1,0 +1,197 @@
+---
+title: "Geography 176A"
+author: "[Ian Hinds](https:://hindstein.github.io)"
+subtitle: 'Lab 02: COVID-19 Pandemic'
+output:
+  html_document:
+    theme: journal
+---
+
+## Libraries
+* *tidyverse*
+* *knitr*
+* *readxl*
+* *zoo*
+
+```{r include=FALSE}
+library(tidyverse)
+library(knitr)
+library(readxl)
+library(zoo)
+```
+
+## COVID Data URL (NYTimes)
+https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv
+
+```{r include=FALSE}
+library(tidyverse)
+url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
+covid = read_csv(url)
+```
+## Population Data (USDA)
+https://www.ers.usda.gov/webdocs/DataFiles/48747/PopulationEstimates.xls?v=2561.3
+
+## Question 1
+As it stands, the California Department of Public Health maintains a watch list of counties that are being monitored for worsening coronavirus trends. There are six criteria used to place counties on the watch list:
+
+* Doing fewer than 150 tests per 100,000 residents daily (over a 7-day average)
+
+* More than 100 new cases per 100,000 residents over the past 14 days…
+
+* 25 new cases per 100,000 residents and an 8% test positivity rate
+
+* 10% or greater increase in COVID-19 hospitalized patients over the past 3 days
+
+* Fewer than 20% of ICU beds available
+
+* Fewer than 25% ventilators available
+
+**Of these 6 conditions, we will monitor condition number 2.** 
+
+To do this job well, you should set up a reproducible framework to communicate the following in a way that can be updated every time new data is released:
+
+* cumulative cases in the 5 worst counties
+* total NEW cases in the 5 worst counties
+* A list of safe counties
+* A text report describing the total new cases, total cumulative cases and number of safe counties.
+
+__Cumulative cases in the 5 worst counties to date:__
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+worst_counties = covid %>%
+  filter(state == "California", date == max(date)) %>%
+  group_by(county) %>%
+  summarize(cases = max(cases, na.rm = TRUE)) %>%
+  ungroup() %>%
+  slice_max(cases, n=5)
+knitr::kable(worst_counties, 
+             caption = "Counties with the Most Cases",
+             col.names = c("County", "Cases"),
+             color = "black")
+```
+
+__Total NEW cases in the 5 Worst Counties Today__
+```{r message=FALSE, warning=FALSE, include=FALSE}
+worst_counties = covid %>%
+  filter(state == "California") %>%
+  group_by(county) %>%
+  mutate(newCases = cases - lag(cases)) %>%
+  ungroup() %>%
+  filter(date == max(date))
+
+(most_new_cases = worst_counties %>%
+      slice_max(newCases, n = 5) %>%
+      select(county, newCases))
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(most_new_cases, 
+             caption = "New Cases", 
+             col.names = c("County", "Cases"))
+```
+
+
+```{r include=FALSE}
+#Open population estimate excel
+library(readxl)
+popest <- read_excel("C:/Users/Ianhi/OneDrive/Desktop/github2/labs/data/popest.xls")
+View(popest)
+```
+```{r eval=FALSE, include=FALSE}
+# Join COVID and Population
+#full_join(covid, popest, by = "California") %>%
+#group_by(county, date) %>%
+#summarize()
+  
+```
+
+
+## Question 2
+In this question, we are going to look at the story of 4 states and the impact scale can have on data interprtation. The states include: New York, California, Louisiana, and Florida.
+
+We will make a faceted bar plot showing the number of daily, new cases at the state level.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Group/Summarize county level to state level, filter it to the four states of interest
+state.of.interest = "New York"
+
+covid %>%
+  filter(state == state.of.interest) %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases)) %>%
+  mutate(newCases = cases - lag(cases),
+         roll7 = rollmean(newCases, 7, fill = NA, align="right")) %>%
+  ggplot(aes(x = date)) +
+  geom_col(aes(y = newCases), col = NA, fill = "gold") +
+  geom_line(aes(y = roll7), col = "darkblue", size = 1) +
+  ggthemes::theme_wsj() +
+  labs(title = paste("New Reported cases by day in", state.of.interest)) +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(size = 14, face = 'bold')) +
+  theme(aspect.ratio = .5)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+state.of.interest = "California"
+
+covid %>%
+  filter(state == state.of.interest) %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases)) %>%
+  mutate(newCases = cases - lag(cases),
+         roll7 = rollmean(newCases, 7, fill = NA, align="right")) %>%
+  ggplot(aes(x = date)) +
+  geom_col(aes(y = newCases), col = NA, fill = "gold") +
+  geom_line(aes(y = roll7), col = "blue", size = 1) +
+  ggthemes::theme_wsj() +
+  labs(title = paste("New Reported cases by day in", state.of.interest)) +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(size = 14, face = 'bold')) +
+  theme(aspect.ratio = .5)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+state.of.interest = "Louisiana"
+
+covid %>%
+  filter(state == state.of.interest) %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases)) %>%
+  mutate(newCases = cases - lag(cases),
+         roll7 = rollmean(newCases, 7, fill = NA, align="right")) %>%
+  ggplot(aes(x = date)) +
+  geom_col(aes(y = newCases), col = NA, fill = "gold") +
+  geom_line(aes(y = roll7), col = "darkblue", size = 1) +
+  ggthemes::theme_wsj() +
+  labs(title = paste("New Reported cases by day in", state.of.interest)) +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(size = 14, face = 'bold')) +
+  theme(aspect.ratio = .5)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+state.of.interest = "Florida"
+
+covid %>%
+  filter(state == state.of.interest) %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases)) %>%
+  mutate(newCases = cases - lag(cases),
+         roll7 = rollmean(newCases, 7, fill = NA, align="right")) %>%
+  ggplot(aes(x = date)) +
+  geom_col(aes(y = newCases), col = NA, fill = "gold") +
+  geom_line(aes(y = roll7), col = "darkblue", size = 1) +
+  ggthemes::theme_wsj() +
+  labs(title = paste("New Reported cases by day in", state.of.interest)) +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(size = 14, face = 'bold')) +
+  theme(aspect.ratio = .5)
+```
+
+>Conclusion: States with higher populations represented larger spikes in daily cases. These states are Florida, California, and New York. Louisiana, containing a much smaller populous, experiences a less extreme variance in case frequency. Scaling by population would make the larger populations look more similar, and the smaller populations more different.
+
+## Question 3:
+
+>Metropolitan environments and other largely populated areas throughout the U.S. have seen drastic spikes in case numbers in a short time span. The inconsistent practice of wearing a mask and social distancing has negativvely affected some communites, especially those who are at risk of being a hot spot. COVID-19 can spread easiest when physical and close contact is exchanged with individuals, therefore larger communities have seen the greatest number of cases.
+
+
