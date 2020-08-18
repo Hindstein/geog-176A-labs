@@ -1,6 +1,6 @@
 ---
-title: "Geography 176A"
-author: "[Ian Hinds](https:://hindstein.github.io)"
+title: "Labs"
+author: "[Ian Hinds](https://hindstein.github.io/GEOG176A/)"
 subtitle: 'Lab 02: COVID-19 Pandemic'
 output:
   html_document:
