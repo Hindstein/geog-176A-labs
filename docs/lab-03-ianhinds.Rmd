@@ -1,0 +1,54 @@
+---
+title: "GEOG 176A: Intro to GIS"
+author: "[Ian Hinds](https://hindstein.github.io/GEOG176A/)"
+subtitle: 'Lab 03: Distances and the Border Zone'
+output:
+  html_document:
+    theme: journal
+---
+
+## Libraries
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+# SPDS
+library(tidyverse)
+library(sf)
+library(units)
+
+# Data
+library(USAboundaries)
+library(rnaturalearthdata)
+
+# Visualization
+library(gghighlight)
+library(ggrepel)
+library(knitr)
+```
+
+## Background
+In this lab, 4 main skills are covered:
+
+* 1. __Ingesting/Building__ _sf_ objects from R packages and CSVs. (Q1)
+* 2. __Manipulating__ geometries and coordinate systems (Q2)
+* 3. __Calculaing__ distances (Q2)
+* 4. __Building__ maps using ggplot (Q3)
+
+## Question 1:
+For this lab, 3 datasets are needed.
+
+* 1. Spatial boundaries of continental USA states (1.1)
+* 2. Boundaries of Canada, Mexico, and the United States (1.2)
+* 3. All USA cities (1.3)
+
+### _1.1 Define a Projection_
+For this lab we want to calculate distances between features, therefore we need a projection that perserves distance at the scale of CONUS. For this, we will use the North American Equidistant Conic:
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+eqdc = '+proj=eqdc +lat_0=40 +lon_0=96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs' 
+```
+Unfortunately this projection does not have a EPSG code to reference so we must ue the PROJ4 string above. Take a moment and describe this projection based on the parameters:
+
+
+
+
+### _1.2-Get USA state boundaries_
+In R, USA boundaries are stored in the  'USAboundaries' package.
+
