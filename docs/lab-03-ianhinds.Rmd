@@ -24,6 +24,8 @@ library(ggrepel)
 library(knitr)
 ```
 
+*****
+
 ## Background
 In this lab, 4 main skills are covered:
 
@@ -32,6 +34,8 @@ In this lab, 4 main skills are covered:
 * 3. __Calculaing__ distances (Q2)
 * 4. __Building__ maps using ggplot (Q3)
 
+*****
+
 ## Question 1:
 For this lab, 3 datasets are needed.
 
@@ -39,16 +43,177 @@ For this lab, 3 datasets are needed.
 * 2. Boundaries of Canada, Mexico, and the United States (1.2)
 * 3. All USA cities (1.3)
 
-### _1.1 Define a Projection_
+### __1.1 Define a Projection__
 For this lab we want to calculate distances between features, therefore we need a projection that perserves distance at the scale of CONUS. For this, we will use the North American Equidistant Conic:
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 eqdc = '+proj=eqdc +lat_0=40 +lon_0=96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs' 
 ```
-Unfortunately this projection does not have a EPSG code to reference so we must ue the PROJ4 string above. Take a moment and describe this projection based on the parameters:
+Unfortunately this projection does not have a EPSG code to reference so we must use the PROJ4 string above. Take a moment and describe this projection based on the parameters: **The PROJ4 string transforms geodetic coordinates to other projections.**
+
+
+### __1.2 - Get USA state boundaries__
+In R, USA boundaries are stored in the *USAboundaries* and *USAboundariesData* packages.
+
+Once installed:
+
+* USA state boundaries can be accessed with **USAboundaries::us_states(resolution = "low")**. Given the precision needed for this analysis we are ok with the low resoultion.
+
+* The states are filtered to include only the continental U.S. (**conus**)
+
+* The data is projected in a projected coordinate system suitable for distance measurements at the national scale (*eqdc*)
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+USAboundaries::us_states(resolution = "low")
+```
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+conus = USAboundaries::us_states() %>%
+  filter(!state_name %in% c("Puerto Rico",
+                            "Alaska",
+                            "Hawaii"))
+```
+
+*****
+
+### __1.3 - Get country boundaries for Mexico, the United States of America, and Canada__
+In R, country boundaries are stored in the *rnaturalearth* package.
+
+Once Installed:
+
+* World boundaries can be accessed with **rnaturalearth::countries110**.
+
+* The data is in simple features (**sf**) format.
+
+* The countries used will be The United States, Mexico, and Canada
+
+* The data is in a projected coordinate system suitable for distance measurements at the national scale (*eqdc*)
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+countries = rnaturalearthdata::countries110 %>%
+st_as_sf() %>%
+  st_transform(eqdc) %>%
+  filter(admin %in% c("United States", "Mexico", "Canada"))
+```
+
+*****
+
+### __1.4 - Get city locations from the CSV file__
+The process of finding, downloading and accesing data is the first step of every analysis. 
+
+Once *uscities.csv* is downloaded, it is read into this working session using **read_csv**. Then, the data.frame is converted to a spatial object using **st_as_sf** and includes coordinate variables and a CRS.
+
+Lastly, cities in non-border states will be filtered out and the data will be in a projected coordinate system suitable for distance measurements at the national scale.
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+uscities <- read_csv("../data/uscities.csv")
+View(uscities)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+uscities %>%
+ st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+  filter(state_id %in% c("WA", "OR", "CA", "TX", "LA", "FL", "VA", "DC", "MA", "NY", "MI", "IL", "WI", "ND", "MT")) %>%
+  filter(city %in% c("Seattle", "Portland", "Sacramento", "San Jose", "San Francisco", "Santa Cruz", "Santa Barbara", "Los Angeles", "San Diego", "Houston", "New Orleans","Tampa","Miami", "Washington", "Baltimore", "Philadelphia", "New York City", "Boston", "Buffalo","Detroit","Chicago", "Milawaukee", "Kalispell")) %>%
+  ggplot() +
+  geom_sf() +
+  coord_sf (datum = st_crs()) +
+  theme_linedraw()
+```
+
+*****
+
+## Question 2: 
+Here we will focus on calculating the distance of each USA city to (1) the national border (2) the nearest state border (3) the Mexican border and (4) the Canadian border. Existing spatial geometries will be manipulated using **st_union** or **st_combine** depending on the situation. In all cases, since we are after distances to borders, we will need to cast (**st_cast**) our *MULTIPOLYGON* geometries to *MULTILINESTRING* geometries. To perform these distance calculations we will use **st_distance()**.
+
+### __2.1 - Distance to USA Border (coastline or national) (km)__
+We are interested in the distance of each USA city to the USA border. To do this we need all states to act as a single unit. The state boundaries will be converted into a *MULTILINESTRING* geometry in which the boundaries are **resolved**. Using states object, storing in the cities data,frame, a table will be produces through (**knitr**) documenting the five farthest cities from a state border.
+
+```{r}
+comb_multi = st_combine(conus) %>%
+  st_cast("MULTILINESTRING")
+
+farcities = USAboundaries::us_cities() %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) 
+
+```
+*****
+
+### __2.2 - Distance to States (km)__
+Calculate the distance of each city to the nearest state boundary. 
+
+*****
+
+### __2.3 - Distance to Mexico (km)__
+Isolate Mexico from countries object. produce a **knitr** table to document five cities closest to the national border.
+
+*****
+
+### __2.4 - Distance to Canada (km)__
+Isolate Canada, document five cities closest to this border.
+
+*****
+
+## Question 3:
+Next, focus on visualizing distance data from above. Use **ggplo**t to make maps, **ggrepl** to label significant features, and **gghighlight** to emphasize imortant criteria.
+
+### __3.1 Data__
+Show the 3 countries, CONUS outline, state boundaries, and 10 largest USA cities (by population) on a map
+
+* Use **geom_sf** to plot layers
+* Use **lty** to change line type and size to change width
+* Use **ggrepel::geom_label_repel** to label your cities
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+large <- read_csv("../data/uscities.csv") %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+  filter(city %in% c("New York", "Los Angeles", "Chicago", "Miami", "Dallas", "Philadelphia", "Houston", "Washington", "Atlanta", "Boston")) %>%
+  filter(state_id %in% c("NY", "CA", "IL", "FL", "TX", "PA", "TX", "DC", "GA", "MA"))
+
+
+ggplot() +
+  geom_sf(data = conus, fill = 'gray', size = 1) +
+  geom_sf(data = countries, fill = 'gray', size = 1) +
+  geom_sf(data = large, fill = 'red', size = 2, alpha = .5) +
+  theme_linedraw()
+```
 
 
 
+*****
 
-### _1.2-Get USA state boundaries_
-In R, USA boundaries are stored in the  'USAboundaries' package.
+### __3.2 City Distance from the Border__
+Create a map that colors USA cities by their distance from the national border. In addition, re-draw and label the 5 cities that are farthest from the border. 
+
+*****
+
+### __3.3 City Distance from Nearest State__
+Create a map that colors USA cities y their distance from the nearest state border. In addition, re-draw and label the 5 cities that are farthest from any border.
+
+*****
+
+### __3.4 Equidistance boundary from Mexico and Canada__
+Use **gghighlight to identify the cities that are equal distance from the Canadian and Mexican border +/- 100 km. In addition, label the 5 most populous cities in this zone. 
+
+*****
+
+## Quesiton 4:
+### Real World Application
+Federal Agencies have claimed that constitutional rights protected by the 4th Amendment(protecting Americans from random and arbitrary stops and searches) do not apply fully at our borders. For example, FAs do not need a warrant or suspicion of wrongdoing o justify conducting what courts have called a "routine search", such as searching luggage or a vehicle. SPecifically, federal regulations give U.S. Customs and Border Protection (CBP) authority to operate within 100 miles of any U.S. "external boundary". Further info can be found at this [ACLU article.](https://www.aclu.org/other/constitution-100-mile-border-zone)
+
+### __4.1 Quantifing Border Zone__
+* How many cities are in this 00 mile zone?
+* How many people live in a city within 100 miles of this border?
+* What percentage of the total population is in this zone?
+* Does it match the ACLU estimate in the link above?
+
+Report as a table
+
+*****
+
+### __4.2 Mapping Border Zone__
+* Make a map highlighting the cities within the 100 mile zone using **gghighlight**
+* Use a color gradient from 'orange' to 'darkred'.
+* label the 10 most populous cities in the danger zone
+* *Label the most populous city in ech danger zone state*
+
+*****
 
