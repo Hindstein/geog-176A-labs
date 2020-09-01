@@ -17,6 +17,7 @@ In this lab we will an explore the impacts of tessellated surfaces and the modif
 library(sf)
 library(USAboundaries)
 library(tidyverse)
+library(rmapshaper)
 ```
 *****
 ## Quesion 1: 
@@ -85,27 +86,101 @@ hexgrid = st_make_grid(counties, n=70, square=FALSE) %>%
 
 ```{r}
 # Voroni Grid
-#plot(v_grid)
+plot(v_grid)
 
 # Triangulated Grid
 plot(tri_grid)
 
 # Sqaure Grid
-#plot(sqgrid)
+plot(sqgrid)
 
 # Hexagonal Grid
-#plot(hexgrid)
+plot(hexgrid)
 
 # Cut county boundaries to CONUS border
-countybound = st_filter(counties, countycent_c, .predicate = st_intersects) 
-plot(countybound, max.plot = 12)
+countybound1 = st_filter(counties, tri_grid, .predicate = st_intersects) 
 
 ```
 
-## *Step 1.5 (Simplify Geometry Points)*
+###*Step 1.5 (Simplify Geometry Points)*
 - Use the Visvalingam algotithm provided by rmapshaper::ms_simplify.
 - Choose what percentage of vertices to retain using the keep argument
 - Use the mapview::npts function to report the number of points in the original object, and in the simplified object.
 - How many points were you able to remove? What are the consequences of doing this computationally?
-
 - Use your simplified object to crop the two triangulated tessellations with st_intersection:
+```{r message=FALSE, warning=FALSE}
+# ms_simplify, keep 5% of points
+#countybound5 = ms_simplify(countybound1, keep = .05)
+
+countybound2 = st_filter(counties, tri_grid, .predicate = st_intersects) %>%
+  ms_simplify(keep = .05) %>%
+  plot(max.plot = 1)
+
+countyboundv = st_filter(counties, v_grid, .predicate = st_intersects) %>%
+  ms_simplify(keep = .05) 
+
+#mapview::npts(countyboundtri)
+#22416/51976 original triangulated points 
+
+```
+###*Step 1.6 (Plot Tessellations Using a function)*
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+plot_pip = function(data, var){
+  ggplot() +
+    geom_sf(data = data, aes(color = "white"), size = .2) +
+    scale_color_gradient(low = "white", high = "navy") +
+    theme_void() +
+    theme(legend.position = "bottom")
+}
+
+#plot_pip(counties, tri_grid) %>%
+#  plot()
+```
+
+## Question 2:
+write out a function to summarize our tessellated surfaces
+
+### *Step 2.1 (Create a function that returns a data.frame)*
+
+-The function name can be anything you chose, arg1 should take an sf object, and arg2 should take a character string describing the object
+-calculate the area of arg1; convert the units to km2; and then drop the units
+-create a data.frame containing the following:
+
+### *Step 2.2*
+
+### *Step 2.3*
+
+### *Step 2.4*
+
+### *Step 2.5*
+
+## Question 3:
+The data we are going to analysis in this lab is from US Army Corp of Engineers National Dam Inventory (NID). This dataset documents ~91,000 dams in the United States and a variety of attribute information including design specifications, risk level, age, and purpose.
+
+For the remainder of this lab we will analysis the distributions of these dams (Q3) and their purpose (Q4) through using a point-in-polygon analysis.
+
+### *Step 3.1*
+
+### *Step 3.2*
+
+### *Step 3.3*
+
+### *Step 3.4*
+
+### *Step 3.5*
+
+### *Step 3.6*
+
+## Question 4:
+
+
+### *Step 4.1*
+
+### *Step 4.2*
+
+### *Step 4.3*
+
+### *Step 4.3*
+
+## Extra Credit:
+
