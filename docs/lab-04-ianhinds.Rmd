@@ -1,7 +1,7 @@
 ---
 title: "GEOG 176A: Intro to GIS"
 author: "[Ian Hinds](https://hindstein.github.io/GEOG176A/)"
-subtitle: 'Lab 04: Tesselations, Point-in-polygon'
+subtitle: 'Lab 04: Tesselations, Spatial Joins, Point-in-polygon'
 date: "31 August 2020"
 output:
   html_document:
@@ -18,6 +18,8 @@ library(sf)
 library(USAboundaries)
 library(tidyverse)
 library(rmapshaper)
+library(maps)
+library(units)
 ```
 *****
 ## Quesion 1: 
@@ -44,6 +46,7 @@ counties = USAboundaries::us_counties() %>%
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 countycent = st_centroid(counties) 
 countycent_c = st_combine(countycent)
+
 ```
 
 ### *Step 1.3 (Tile Shapes and Types)*
@@ -62,13 +65,13 @@ v_grid = st_voronoi(countycent_c) %>%
   st_as_sf() %>% 
   mutate(id = 1:n())
 
-# triangulated tesselation
+# triangulated tessellation
 tri_grid = st_triangulate(countycent_c) %>%
   st_cast() %>% 
   st_as_sf() %>% 
   mutate(id = 1:n())
 
-# square (grid) tesselation
+# square (grid) tessellation
 sqgrid = st_make_grid(counties, n=70) %>%
   st_cast() %>% 
   st_as_sf() %>% 
@@ -98,53 +101,95 @@ plot(sqgrid)
 plot(hexgrid)
 
 # Cut county boundaries to CONUS border
-countybound1 = st_filter(counties, tri_grid, .predicate = st_intersects) 
+countybound1 = st_filter(counties, tri_grid, .predicate = st_intersects) %>%
+  select(c("statefp"))
 
 ```
 
-###*Step 1.5 (Simplify Geometry Points)*
-- Use the Visvalingam algotithm provided by rmapshaper::ms_simplify.
-- Choose what percentage of vertices to retain using the keep argument
-- Use the mapview::npts function to report the number of points in the original object, and in the simplified object.
-- How many points were you able to remove? What are the consequences of doing this computationally?
-- Use your simplified object to crop the two triangulated tessellations with st_intersection:
+### *Step 1.5 (Simplify Geometry Points)*
+* Use the Visvalingam algotithm provided by rmapshaper::ms_simplify.
+* Choose what percentage of vertices to retain using the keep argument
+* Use the mapview::npts function to report the number of points in the original object, and in the simplified object.
+* How many points were you able to remove? What are the consequences of doing this computationally?
+* Use your simplified object to crop the two triangulated tessellations with st_intersection:
 ```{r message=FALSE, warning=FALSE}
 # ms_simplify, keep 5% of points
 #countybound5 = ms_simplify(countybound1, keep = .05)
 
-countybound2 = st_filter(counties, tri_grid, .predicate = st_intersects) %>%
-  ms_simplify(keep = .05) %>%
-  plot(max.plot = 1)
+countybound1 %>%
+  ms_simplify(keep = .05)
 
-countyboundv = st_filter(counties, v_grid, .predicate = st_intersects) %>%
-  ms_simplify(keep = .05) 
-
-#mapview::npts(countyboundtri)
+#mapview::npts(countybound1)
 #22416/51976 original triangulated points 
 
+countycroptri = st_intersection(countybound1, tri_grid) %>%
+  select(c("statefp")) %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+  st_transform(5070) %>%
+  st_cast() %>% 
+  st_as_sf() %>% 
+  plot()
+
 ```
-###*Step 1.6 (Plot Tessellations Using a function)*
+
+### *Step 1.6 (Plot Tessellations Using a function)*
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
-plot_pip = function(data, var){
+plot_pip = function(data, list){
+  st_filter(data, list, .predicate = st_intersects)
   ggplot() +
-    geom_sf(data = data, aes(color = "white"), size = .2) +
-    scale_color_gradient(low = "white", high = "navy") +
+    geom_sf(data = data, list = list, aes(fill = "white", borders = "navy"),  size = .2) +
     theme_void() +
-    theme(legend.position = "bottom")
+  theme(legend.position = 'bottom',
+        plot.title = element_text(face = "bold", color = "black", hjust = .5, size = 24)) +
+  labs(title = "Counties per State",
+       caption = "# of counties per state")
 }
 
-#plot_pip(counties, tri_grid) %>%
-#  plot()
+plot_pip(counties, tri_grid) %>%
+  plot()
 ```
+
+### *Step 1.7*
+```{r}
+# Function does not reach desired outcome, cannot properly plot all tessellations
+```
+
+*****
 
 ## Question 2:
 write out a function to summarize our tessellated surfaces
 
 ### *Step 2.1 (Create a function that returns a data.frame)*
 
--The function name can be anything you chose, arg1 should take an sf object, and arg2 should take a character string describing the object
--calculate the area of arg1; convert the units to km2; and then drop the units
--create a data.frame containing the following:
+* The function name can be anything you chose, arg1 should take an sf object, and arg2 should take a character string describing the object
+* calculate the area of arg1; convert the units to km2; and then drop the units
+* create a data.frame containing the following:
+  * text from arg2
+  * the number of features in arg1
+  * the mean area of the features in arg1 (km2)
+  * the standard deviation of the features in arg1
+  * the total area (km2) of arg1
+
+```{r}
+area_data = function(data, title){
+    counties %>%
+    st_area(counties) %>%
+    set_units("km^2") %>%
+    drop_units() %>%
+    as.data.frame() %>%
+      mutate(id = 1:n()) 
+  #  mutate(mean = mean(area)) %>%
+     # mutate(sd = sd(area)) %>%
+     # mutate(total = sum(area))
+  
+}
+
+#area_data(counties) %>%
+#  filter(state_name == "California")
+
+
+```
+
 
 ### *Step 2.2*
 
@@ -154,22 +199,85 @@ write out a function to summarize our tessellated surfaces
 
 ### *Step 2.5*
 
+*****
+
 ## Question 3:
 The data we are going to analysis in this lab is from US Army Corp of Engineers National Dam Inventory (NID). This dataset documents ~91,000 dams in the United States and a variety of attribute information including design specifications, risk level, age, and purpose.
 
 For the remainder of this lab we will analysis the distributions of these dams (Q3) and their purpose (Q4) through using a point-in-polygon analysis.
 
 ### *Step 3.1*
+Add the *National Inventory of Dams (U.S. Army Corps of Engineers)* and read in excel file.
+* remove location value rows
+* convert data.frame to an sf object with coordinate reference system, transform to EPSG: 5070
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+library(readxl)
+X2019_MOD_DAMS_U <- read_excel("../data/2019_MOD_DAMS_U.xlsx") %>%
+  as.data.frame() 
+ # filter(!Agency %in% c("HI", "AL", "PR")) %>%
+  #st_as_sf(coords = "longtitude", "latitude", crs = 4326) %>%
+  #st_transform(5070) %>%
+  
+
+```
+
 
 ### *Step 3.2*
+Make a Point in Polygon function
+
+```{r}
+pip3 = function(points, polygon, id){
+  st_join(points, polygon) %>%
+    st_drop_geometry() %>%
+    count(.data[[id]]) %>%
+    setNames(c(id, "Dams per State")) %>%
+    left_join(polygon, by = id) %>%
+    st_as_sf()
+
+}
+```
+
 
 ### *Step 3.3*
+Apply the Point in Polygon function to the 5 tessellated surfaces
+* the points are the dams
+* polygons are the respective tessellations
+* the id column is the name of the id columns 
+
+```{r}
+# pip3(X2019DAMS, v_grid, id)
+```
+
+
 
 ### *Step 3.4*
+```{r}
+plot_pip2 = function(data, title){
+  ggplot() +
+    geom_sf(data = data, title = title, aes(fill = count(n), col = NA),  size = .2) +
+    #st_gradient_scale(virdis:: )
+    theme_void() +
+  theme(legend.position = 'bottom',
+        plot.title = element_text(face = "bold", color = "black", hjust = .5, size = 24)) +
+  labs(title = "Dams per State",
+       caption = paste0(sum(n)), "# of dams per state")
+}
+```
+
 
 ### *Step 3.5*
+Apply plot_pip2 to the 5 tessellated surfaces
+```{r}
+#plot_pip2(X2019DAMS, "tri_grid")
+```
+
 
 ### *Step 3.6*
+
+Based off of how the initial tessellations manage point data, I will use the square grid tessellation because it is easier to navigate. The polygons within are consistent and can be followed easier than that of the voroni, triangle, or hexagonal tessellations. 
+
+*****
 
 ## Question 4:
 
@@ -183,4 +291,6 @@ For the remainder of this lab we will analysis the distributions of these dams (
 ### *Step 4.3*
 
 ## Extra Credit:
+
+
 
