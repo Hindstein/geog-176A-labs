@@ -395,6 +395,7 @@ summary {
 <pre class="r"><code>library(raster) # Raster Data handling
 library(tidyverse) # Data Manipulation
 library(getlandsat) # keyless Landsat data (2013-2017)
+library(osmdata)
 library(sf) # Vector data processing
 library(mapview) # Rapid Interactive visualization</code></pre>
 <p>Remote Sensing/Image Analysis begins with usually the same steps:</p>
@@ -428,6 +429,108 @@ library(mapview) # Rapid Interactive visualization</code></pre>
 <li>Convert that bbox object into as sfc then sf object</li>
 </ul>
 <p>This region defines the AOI for this analysis.</p>
+<pre class="r"><code>bb = read.csv(&#39;../data/uscities.csv&#39;) %&gt;%
+  filter(city == &quot;Palo&quot;) %&gt;%
+  st_as_sf(coords = c(&quot;lng&quot;, &quot;lat&quot;), crs = 4326) %&gt;%
+  st_transform(5070) %&gt;%
+  st_buffer(5000) %&gt;%
+  st_bbox() %&gt;%
+  st_as_sfc() %&gt;%
+  st_as_sf()</code></pre>
+<hr />
+</div>
+<div id="question-2-data-acquisition" class="section level2">
+<h2><em>Question 2 (Data Acquisition)</em></h2>
+<div id="retrieve-palo-flood-data" class="section level3">
+<h3>2.1 (Retrieve Palo flood data)</h3>
+<p>For our analysis we will be using data from Landsat 8. Landsat 8 is the newest generation of the Landsat satellites and provides a useful resource for water detection. The OLI sensor aboard Landsat 8 has nine bands for capturing the spectral response of the earth’s surface at discrete wavelengths along the electromagnetic spectrum.</p>
+<pre class="r"><code>#code is from lab05.R file
+bbwgs = bb %&gt;% st_transform(4326)
+bb = st_bbox(bbwgs)
+
+osm = osmdata::opq(bbwgs) %&gt;%
+  #or building
+  add_osm_feature(&quot;natural&quot;) %&gt;%
+  osmdata_sf()
+
+#mapview(osm$osm_polygons)
+
+scenes = lsat_scenes()
+
+down = scenes %&gt;%
+  filter(min_lat &lt;= bb$ymin, max_lat &gt;= bb$ymax,
+         min_lon &lt;= bb$xmin, max_lon &gt;= bb$xmax,
+         as.Date(acquisitionDate) == as.Date(&quot;2016-09-26&quot;))
+
+#write.csv(down, file = &quot;data/palo-flood-scene.csv&quot;)</code></pre>
+</div>
+<div id="caching-the-data" class="section level3">
+<h3>2.2 (Caching the Data)</h3>
+<p>We need to download and cache the data on our computers.</p>
+<p>Caching essentially means we will download the data to a standardized location known to the downloading utility.</p>
+<p>Before any data is downloaded, the utility will check if it already exisits. If it does, then the path to the file is returned, if it does not, the data is downloaded.</p>
+<pre class="r"><code>meta = read_csv(&quot;../data/palo-flood-scene.csv&quot;)
+
+files = lsat_scene_files(meta$download_url) %&gt;%
+  filter(grepl(paste0(&quot;B&quot;, 1:6, &quot;.TIF$&quot;, collapse = &quot;|&quot;), file)) %&gt;%
+  arrange(file) %&gt;%
+  pull(file)</code></pre>
+</div>
+<div id="download-sat-files-to-cache" class="section level3">
+<h3>2.3 (Download sat files to cache)</h3>
+<p>Now that we have the URLs of the files we want, we need to download them to our cache location, using <em>getlandsat</em></p>
+<pre class="r"><code>st = sapply(files, lsat_image)
+
+s = stack(st) %&gt;% setNames(c(paste0(&quot;band&quot;, 1:6)))
+s</code></pre>
+<pre><code>## class      : RasterStack 
+## dimensions : 7811, 7681, 59996291, 6  (nrow, ncol, ncell, nlayers)
+## resolution : 30, 30  (x, y)
+## extent     : 518085, 748515, 4506585, 4740915  (xmin, xmax, ymin, ymax)
+## crs        : +proj=utm +zone=15 +datum=WGS84 +units=m +no_defs 
+## names      : band1, band2, band3, band4, band5, band6 
+## min values :     0,     0,     0,     0,     0,     0 
+## max values : 65535, 65535, 65535, 65535, 65535, 65535</code></pre>
+</div>
+<div id="crop-rasterstack-st" class="section level3">
+<h3>2.4 (Crop Rasterstack <em>st</em>)</h3>
+<p>We only want to analyze our image for the regions surrounding Palo (our AOI). We will transform our AOI to the CRS of the landsat stack and use it to crop the raster stack.</p>
+<pre class="r"><code>cropper = bbwgs %&gt;%
+  st_transform(crs(s))
+
+r = crop(s, cropper)
+r</code></pre>
+<pre><code>## class      : RasterBrick 
+## dimensions : 340, 346, 117640, 6  (nrow, ncol, ncell, nlayers)
+## resolution : 30, 30  (x, y)
+## extent     : 594075, 604455, 4652535, 4662735  (xmin, xmax, ymin, ymax)
+## crs        : +proj=utm +zone=15 +datum=WGS84 +units=m +no_defs 
+## source     : memory
+## names      : band1, band2, band3, band4, band5, band6 
+## min values :  8566,  7721,  6670,  6057,  5141,  4966 
+## max values : 18482, 19079, 19592, 21965, 24772, 23896</code></pre>
+<hr />
+</div>
+</div>
+<div id="question-3-image-creation" class="section level2">
+<h2><em>Question 3: (Image Creation)</em></h2>
+<hr />
+</div>
+<div id="question-4-thresholding" class="section level2">
+<h2><em>Question 4: (Thresholding)</em></h2>
+<hr />
+</div>
+<div id="question-5-classification" class="section level2">
+<h2><em>Question 5: (Classification)</em></h2>
+<hr />
+</div>
+<div id="questions-6-summary" class="section level2">
+<h2><em>Questions 6: (Summary)</em></h2>
+<hr />
+</div>
+<div id="extra-credit-pixel-evaluation" class="section level2">
+<h2>Extra Credit: Pixel Evaluation</h2>
+<hr />
 </div>
 
 
