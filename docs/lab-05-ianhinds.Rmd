@@ -137,26 +137,44 @@ r
 *****
 
 ## *Question 3: (Image Creation)*
+### 3.1 (Rename raster stack with RS Band names)
 
+
+### 3.2 (Replicate Images)
+
+
+The purpose of applying a color sketch is ....
 
 *****
 
 ## *Question 4: (Thresholding)*
+### 4.1 (Raster Algebra)
 
+
+### 4.2 (Raster Thresholding)
 
 *****
 
 ## *Question 5: (Classification)*
+### 5.1 (Set a seed)
 
+### 5.2 (*kmeans*)
+
+### 5.3 (Table using *kmeans_raster*)
 
 *****
 
 ## *Questions 6: (Summary)*
+### 6.1 (Total Area)
 
+### 6.2 (Summing the stack)
+
+### 6.3 (Plot stack) 
 
 *****
 
 ## Extra Credit: Pixel Evaluation
+
 
 
 *****
