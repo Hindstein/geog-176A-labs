@@ -493,7 +493,7 @@ s</code></pre>
 ## max values : 65535, 65535, 65535, 65535, 65535, 65535</code></pre>
 </div>
 <div id="crop-rasterstack-st" class="section level3">
-<h3>2.4 (Crop Rasterstack <em>st</em>)</h3>
+<h3>2.4 (Crop Rasterstack <em>st</em> )</h3>
 <p>We only want to analyze our image for the regions surrounding Palo (our AOI). We will transform our AOI to the CRS of the landsat stack and use it to crop the raster stack.</p>
 <pre class="r"><code>cropper = bbwgs %&gt;%
   st_transform(crs(s))
@@ -514,19 +514,50 @@ r</code></pre>
 </div>
 <div id="question-3-image-creation" class="section level2">
 <h2><em>Question 3: (Image Creation)</em></h2>
+<div id="rename-raster-stack-with-rs-band-names" class="section level3">
+<h3>3.1 (Rename raster stack with RS Band names)</h3>
+</div>
+<div id="replicate-images" class="section level3">
+<h3>3.2 (Replicate Images)</h3>
+<p>The purpose of applying a color sketch is ….</p>
 <hr />
+</div>
 </div>
 <div id="question-4-thresholding" class="section level2">
 <h2><em>Question 4: (Thresholding)</em></h2>
+<div id="raster-algebra" class="section level3">
+<h3>4.1 (Raster Algebra)</h3>
+</div>
+<div id="raster-thresholding" class="section level3">
+<h3>4.2 (Raster Thresholding)</h3>
 <hr />
+</div>
 </div>
 <div id="question-5-classification" class="section level2">
 <h2><em>Question 5: (Classification)</em></h2>
+<div id="set-a-seed" class="section level3">
+<h3>5.1 (Set a seed)</h3>
+</div>
+<div id="kmeans" class="section level3">
+<h3>5.2 (<em>kmeans</em>)</h3>
+</div>
+<div id="table-using-kmeans_raster" class="section level3">
+<h3>5.3 (Table using <em>kmeans_raster</em>)</h3>
 <hr />
+</div>
 </div>
 <div id="questions-6-summary" class="section level2">
 <h2><em>Questions 6: (Summary)</em></h2>
+<div id="total-area" class="section level3">
+<h3>6.1 (Total Area)</h3>
+</div>
+<div id="summing-the-stack" class="section level3">
+<h3>6.2 (Summing the stack)</h3>
+</div>
+<div id="plot-stack" class="section level3">
+<h3>6.3 (Plot stack)</h3>
 <hr />
+</div>
 </div>
 <div id="extra-credit-pixel-evaluation" class="section level2">
 <h2>Extra Credit: Pixel Evaluation</h2>
