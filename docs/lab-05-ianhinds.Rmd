@@ -70,6 +70,23 @@ bb = read.csv('../data/uscities.csv') %>%
 ### 2.1 (Retrieve Palo flood data)
 For our analysis we will be using data from Landsat 8. Landsat 8 is the newest generation of the Landsat satellites and provides a useful resource for water detection. The OLI sensor aboard Landsat 8 has nine bands for capturing the spectral response of the earth’s surface at discrete wavelengths along the electromagnetic spectrum.
 
+Amazon hosts all Landsat 8 data in a bucket associated with the OpenData Registry Initiative
+
+The getlandsat R package provides a nice interface to this product for images taken between 2013-2017. Current efforts to extend this resource are underway using the SAT-API.
+
+To find our images, we first need to list all available scenes, filter to those that meet our criteria (date and bounding box), and isolate the scenes unique identifier.
+
+To do this:
+
+* load all available scenes with getlandsat::lsat_scenes() and assign it to an object
+  * getlandsat::lsat_scenes() will download and extract a CSV of ALL scenes archived on the AWS bucket between (2013-2017) (n = 2,070,448)
+  * While reading in this much data takes some time (~30 seconds), it only needs to be done when you are searching for scenes. That is why it should NOT be included in your Rmd.
+* Once its loaded, filter the scenes to those that are suitable for our AOI on 2016-09-26
+  * transform your bbox to EPSG:4326, and create a new bounding box object (st_bbox)
+  * Use >= and <= to filter based on your xmin, xmax, ymin, ymax values
+  * The acquisitionDate comes as a POSIXct, these include hour:minutes:seconds. Cast it to a date object with as.Date, and check it against (as.Date("2016-09-26"))
+* Once you have identified the meta data for your scene, save it to a csv file in your data folder using write.csv:
+
 ```{r message=FALSE, warning=FALSE}
 #code is from lab05.R file
 bbwgs = bb %>% st_transform(4326)
@@ -100,6 +117,22 @@ We need to download and cache the data on our computers.
 Caching essentially means we will download the data to a standardized location known to the downloading utility.
 
 Before any data is downloaded, the utility will check if it already exisits. If it does, then the path to the file is returned, if it does not, the data is downloaded.
+
+The getlandsat package provides a nice caching system. To download and cache image data we need to do the following:
+
+* Read in the csv of your image meta data from the file saved in your data directory (read_csv)
+* Pass the download URL variable to lsat_scene_files
+  * This will list all available files for that scene
+  * We will then filter these to only include the TIF files for bands 1-6.
+
+We can do this using grepl like last week! However we will expand on pattern matching techniques using multiple patterns and a constraint:
+
+* This time we will search for a set of patterns (B1.TIF, B2.TIF, B3.TIF,… B6.TIF) rather then a single one (like “C” or “R”)
+  * This effectively checks for THIS pattern or THAT pattern (THIS|THAT)
+  * We can create this pattern with paste and the collapse argument
+
+* We can search for multiple patterns by separating them with the “OR” operator | 
+  * Specifically, we want to collapse our patterns on the | separator:
 ```{r message=FALSE, warning=FALSE}
 meta = read_csv("../data/palo-flood-scene.csv")
 
@@ -114,13 +147,24 @@ files = lsat_scene_files(meta$download_url) %>%
 ### 2.3 (Download sat files to cache)
 Now that we have the URLs of the files we want, we need to download them to our cache location, using *getlandsat*
 
+lsat_image will take a file name - like those your created in step 2 - and download the file to your cache. If the download has already occurred, then the path to the cached image is returned without re downloading the data.
+
+Right now we have 6 files we want, 1 for each band. So we want to apply lsat_image, over this vector of files to return a set of local file paths. For this we can use the apply family in base R.
+
+* lapply returns a list of elements resulting from a specified function (FUN) applied to all inputs.
+
+* sapply is a wrapper of lapply that returns a vector, matrix or, if simplify = “array”, an array rather then a list
+
+* vapply is similar to sapply, but has a pre-specified type of return value, so it can be safer (and sometimes faster) to use.
+
+We want to apply the lsat_image function over our URL paths to return a vector of local file paths … so we can use sapply where the files are the input and the FUN = lsat_image
+
 ```{r message=FALSE, warning=FALSE}
 st = sapply(files, lsat_image)
 
 s = stack(st) %>% setNames(c(paste0("band", 1:6)))
 s
 ```
-
 
 ### 2.4 (Crop Rasterstack *st* )
 We only want to analyze our image for the regions surrounding Palo (our AOI). We will transform our AOI to the CRS of the landsat stack and use it to crop the raster stack.
@@ -137,10 +181,39 @@ r
 *****
 
 ## *Question 3: (Image Creation)*
+We have loaded them as a multiband raster object in R and cropped the domain to our AOI. Lets make a few RGB plots to see what these images reveal.
+
+115 A-C covers the notion of spectral signatures (bands) and spectral combinations in greater detail as well as common task like atmospheric correction. We dont need to worry much about correction here since we are using a LT1 product (check the processingLevel in the metadata)
+
 ### 3.1 (Rename raster stack with RS Band names)
+Standard cameras replicate whats seen with the human eye, by capturing light in the red, green and blue wavelengths and applying red, green ,and blue filters (channels) to generate a natural looking RGB image.
+
+With a multispectral Landsat 8 image, we have more information to work with and different wavelengths/combinations can help isolate particular features.
+
+For example, the Near Infrared (NIR) wavelength is commonly used to analysis vegetation health because vegetation reflects strongly in this portion of the electromagnetic spectrum. Alternatively, the Shortwave Infrared (SWIR) bands are useful for discerning what is wet and dry.
+
+When working with Landsat imagery, a logical first step is to load an image into an image analysis program (like ENVI) to visualize whats in the scene. We can do the same thing with R using the plotRGB function and selecting which band should populate each channel.
+
+Rename raster stack with the names of the band (e.g. “coastal”, “red”, “green”, …)
+
+```{r}
+par(mfrow = c(2,2))
+#plot Natural
+Natural = plotRGB(r, r = 4, g = 3, b = 2, main = "Natural")
+#plot color IR
+Color_IR = plotRGB(r, 5, 4, 3, main = "IR")
+#plot false for water
+False_Water = plotRGB(r, 5, 7, 1, main = "False Water Focus")
+#False for Ag.
+Fasle_Ag = plotRGB(r, 6, 5, 2, main = "False Ag. Focus")
+```
 
 
 ### 3.2 (Replicate Images)
+```{r}
+plotRGB(r, r = 4, g = 3, b = 2, stretch = "lin")
+plotRGB(r, r = 4, g = 3, b = 2, stretch = "hist")
+```
 
 
 The purpose of applying a color sketch is ....

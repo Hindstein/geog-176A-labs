@@ -383,7 +383,190 @@ summary {
 </div>
 
 
+<div id="flood-risk-in-mission-creek-past-present-future" class="section level1">
+<h1><em>Flood Risk in Mission Creek: Past, Present, Future</em></h1>
+<div id="background" class="section level2">
+<h2>Background</h2>
+<p>Mission Creek runs from Rattle Snake Canyon, through Santa Barbara, and drains into the water front near Stearns Wharf. It has a USGS gaging location situated ~13 up the mainstem.</p>
+<p>In the past two decades this basin has flooded on numerous occasions causing damage along State Street and the surrounding neighborhoods.</p>
+<p>This lab will build a partial or full Flood Inundation Map (FIM) Library for the Mission Creek Basin. More importantly, this lab is the summation of geography 176A and will focus of four key tasks:</p>
+<ul>
+<li>1.Finding and bringing data into R using Web APIs</li>
+<li>2.Aligning retrieved object and field data</li>
+<li>3.Preparing terrain data for analysis</li>
+<li>4.Carrying out a simple, multi-data structure (raster/vector) analysis.</li>
+</ul>
+<div id="libraries" class="section level3">
+<h3>Libraries</h3>
+<pre class="r"><code>library(sf)        # vector manipulation
+library(raster)    # raster manipulation
+library(fasterize) # &quot;faster&quot; raster
+library(whitebox)  # terrain analysis
 
+# Data libraries
+library(osmdata)   # OSM API
+library(elevatr)   # Elevation  Web Tiles</code></pre>
+</div>
+<div id="flooding-jargon" class="section level3">
+<h3>Flooding Jargon</h3>
+<ul>
+<li><p><strong>stage</strong> = height of the water in a channel</p></li>
+<li><p><strong>streamflow</strong> = the rate of water flowing in a channel</p></li>
+<li><p><strong>basin</strong> = an area in which all cells contribute to a common outlet (an area or ridge of land that separates waters flowing to different rivers, basins, or seas)</p></li>
+<li><p><strong>flowpath</strong> = the linear path over which water flows (river)</p></li>
+<li><p><strong>HAND</strong> = Height Above Nearest Drainage, “how high is a cell above its nearest river cell?”</p></li>
+</ul>
+</div>
+<div id="collecting-data" class="section level3">
+<h3>Collecting Data</h3>
+<p>To estimate the number of buildings impacted in the 2017 Mission Creek flood event using the Height Above Nearest Drainage Flood mapping methodology which is currently being explored by NOAA as an operational flood mapping technique for CONUS.</p>
+<p>Recently research into this technique has accelerated (1, 2, 3) and been awarded several multi-million dollar grants to advance (1, 2). These projects focus on enhancing HAND forecasts with satellite imagery (particularly Sentinel 2) and on extending flood forecasts to impact assessments by interrelating feature (like OSM) and raster products.</p>
+<p>The first part of the lab is collecting the data needed for the analysis. This includes representations of the elevation grid, the river network, and building structures.</p>
+<div id="basin-boundary" class="section level4">
+<h4>Basin boundary</h4>
+<p>HAND is a watershed focused analysis, therefore we need the boundaries of a local basin to define our AOI.</p>
+<p>Use the Network Linked Data Index (NLDI to identify the basin associated with the USGS gage: USGS-11119750.</p>
+<p>Remember that basin boundaries can be accessed from the NLDI using the following URL pattern:</p>
+<p><a href="https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/USGS-" class="uri">https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/USGS-</a><strong>SITEIDHERE</strong>/basin</p>
+<p>Where you fill in the SITEIDHERE with the appropriate gage ID.</p>
+<p>The geojson stored at that URL can then be read directly into R (as a simple feature object) using read_sf().</p>
+<pre class="r"><code>#Go ahead and load the basin into your working session.</code></pre>
+</div>
+<div id="elevation-data" class="section level4">
+<h4>Elevation Data</h4>
+<p>Once you have the basin boundary, get elevation data using elevatr and a zoom level of 13. Once returned,</p>
+<ul>
+<li><p>crop/mask the elevation data to the basin boundary and convert elevation values from meters to feet (1m = 3.281 feet)</p></li>
+<li><p>Write the raster to your data folder as a tif file (use writeRaster)</p></li>
+</ul>
+</div>
+<div id="buildings-and-river-network-data" class="section level4">
+<h4>Buildings and river-network data</h4>
+<p>Within the basin we want to find the exposed buildings, and the river flowpaths that carry water.</p>
+<p>Use OSM to query building and stream data</p>
+<ul>
+<li><p>For buildings, identify the POLYGON (building footprint) centroids and clip them to the basin boundary</p>
+<ul>
+<li>Additionally, extract the railway POINT from the buildings for latter plotting</li>
+</ul></li>
+<li><p>For the streams, keep all LINESTRING elements and clip them to the basin boundary</p></li>
+</ul>
+</div>
+</div>
+<div id="terrain-analysis" class="section level3">
+<h3>Terrain Analysis</h3>
+<p>For your HAND flood analysis, you will need 2 new terrain based datasets:</p>
+<ul>
+<li><p>a “Hillshade” raster for visualization</p></li>
+<li><p>a “Height Above Nearest Drainage” (HAND) raster for rapid flood assessment.</p></li>
+</ul>
+<p>Each of these will be created using the whitebox frontend toolkit and will be based on the elevation raster you saved above.</p>
+<div id="hillshade" class="section level4">
+<h4>Hillshade</h4>
+<p>Starting with the filepath to your elevation tif, create a hillshade raster in your data folder using wbt_hillshade. At minimum, wbt_hillshade requires two arguments, the path to the raw data (elevation tif), and an output path to where the new data should be saved. Feel free to leave the other defaults of wbt_hillshade unchanged.</p>
+<p>Once processed, read your hillshade tif file into R and plot it using the color palette gray.colors(256, alpha = .5) (also, remove the legend)</p>
+<p>On top of the hillshade, plot the basin boundary and the river flowlines.</p>
+</div>
+<div id="height-above-nearest-drainage" class="section level4">
+<h4>Height Above Nearest Drainage</h4>
+<p>Height Above Nearest Drainage is a hydrologically normalized DEM in which each cell represents the height above the nearest cell designated as a river. Therefore, to create a HAND product we need a representation of the DEM, and the river network on the same raster grid.</p>
+<p>If we think of the basin as a bathtub, then the height of the water in the channel will spread evenly across the landscape submerging any cell with a HAND value less then the height of the water in the channel. That is, if the height of the water (stage) in a river is 4 feet, any cell with a HAND value less then 4 will be flooded. This idea is illustrated below:</p>
+<div id="creating-the-river-raster" class="section level5">
+<h5>Creating the river raster</h5>
+<p>First, we want to rasterize our flowlines to the grid of our elevation raster. Remember that fasterize works only with POLYGON or MULTIPOLYGON objects. Currently our river network is a LINESTRING.</p>
+<p>To add an area to our flowlines, buffer them using a distance of 10 meters. Think carefully about the process you need to do this with respect to CRS.</p>
+<p>Once buffered, use fasterize::fasterize to create your river network raster using the elevation grid as the template</p>
+<p>Write the river raster to your data folder.</p>
+</div>
+<div id="creating-the-hydrologically-corrected-surface" class="section level5">
+<h5>Creating the hydrologically corrected surface</h5>
+<p>We will use the whitebox tool wbt_breach_depressions to correct errors in our DEM/elevation grid. This utility runs Lindsay’s (2016) algorithm to breach (fill) all of the depressions in a DEM.</p>
+<p>This utility requires two arguments, (1) the local path to the elevation grid, and (2) a path to write the output raster.</p>
+<p>Execute this utility to create a conditioned elevation product.</p>
+</div>
+<div id="creating-the-hand-raster" class="section level5">
+<h5>Creating the HAND raster</h5>
+<p>wbt_elevation_above_stream can be used to generate a HAND raster. It requires three arguments: (1) the path to the conditioned DEM, (2) the path to the rasterized river networks, and (3) a output location to write the final file.</p>
+<p>Execute this utility to create a final HAND raster.</p>
+</div>
+</div>
+<div id="correcting-to-local-reference-datum" class="section level4">
+<h4>Correcting to local reference datum</h4>
+<p>Great we now have a HAND raster that uses the river network as a local reference datum. The problem is that our recorded stage values, are not referenced to that local datum. Instead, the USGS records stage as the height above a local control point and not to the bottom of the river.</p>
+<p>This is illustrated by the fact that instances of 0 measured flow, correspond to a recorded gage height of 3.69 feet (see below)</p>
+<p>To correct for this we need to add the 3.69 foot offset to our current HAND raster and then ensure our river network still has a HAND value of 0. To do this:</p>
+<ul>
+<li>Read in the HAND data from the file output from wbt_elevation_above_stream</li>
+<li>Read in the river raster data</li>
+<li><strong>Add</strong> the offset to the entire HAND raster</li>
+<li>Then, ensure that if the cell has a value of 1 in the river raster then its HAND value is set to 0.</li>
+<li>Save the new, offset raster to your data folder</li>
+</ul>
+</div>
+</div>
+<div id="impact-assessment" class="section level3">
+<h3>2017 Impact Assessment</h3>
+<div id="map-the-flood" class="section level4">
+<h4>Map the flood</h4>
+<p>The gage upstream of USGS-11119750 (USGS-11119745) has a better, longer, gage record.</p>
+<p>Since we are making the simplified assumption that the height of water in the basin is constant at any point in time we can look at this gage.</p>
+<p>The historical peak chart shows that on February 17th 2017, the river reached a stage of 10.02 feet - the largest in the observed record.</p>
+<p>This means that every cell in the HAND raster with a HAND value less than or equal to 10.02 is flooded. Knowing this:</p>
+<ul>
+<li>Read in the corrected HAND raster</li>
+<li>Create a flood map where any cell with a HAND value greater then 10.02 is set to NA.</li>
+<li>Plot your hillshade as you did above</li>
+<li>Overlay the flood map using the rev(blues9) color palette and add = TRUE</li>
+<li>Plot the railway station as a point of reference colored in green, with cex = 1, and pch = 16</li>
+</ul>
+<p>*Does that map look accurate?</p>
+</div>
+<div id="estimate-the-impacts" class="section level4">
+<h4>Estimate the impacts</h4>
+<p>With a defined map, we want to determine the number of buildings impacted by this event.</p>
+<ul>
+<li>Use the OSM building centroids to extract the flood depth at each structure from your flood raster.</li>
+<li>Count the number not equal to NA in order to determine the number of impacted structures. Then, starting with overlaid hillshade/flood map:</li>
+<li>Add the buildings centroids to the map:
+<ul>
+<li>impacted buildings should be colored red,</li>
+<li>non-impacted buildings should be colored black.</li>
+<li>All should be plotted with pch = 16 and cex = .08.</li>
+</ul></li>
+<li>Add the railroad as a reference point, colored in grean, with cex = 1 and pch = 16</li>
+<li>In the title (main = “…”) detail the number of impacted structures and stage level programatically using paste</li>
+</ul>
+</div>
+</div>
+<div id="flood-inudation-map-library" class="section level3">
+<h3>Flood Inudation Map library</h3>
+<p>Flood Inundation Map libraries help communities apply real-time stream data and National Weather Service flood forecasts to form a two-dimensional flood warning system. These 2D warning systems help estimate the extent of a flood and identify at-risk areas and resources in advance of floodwaters arriving.</p>
+<hr />
+<p>You have been asked to create a FIM library for Mission Creek for stage values ranging from 0 to 20 feet. You have also been asked to animate this library as a GIF file showing the hillshade, flood level, and impacted buildings for each stage.</p>
+<p>Last, the city is interested in zooming in on the lower portion of the basin contained within the “Santa Barbara” bounding box (defined in OSM). You can get this boundary using the AOI package:</p>
+<pre class="r"><code>sb = AOI::aoi_get(&quot;Santa Barbara&quot;)</code></pre>
+<p>Once you have your AOI:</p>
+<ul>
+<li>crop/clip the basin, HAND raster, and Hillshade raster to the AOI extent</li>
+<li>Generate/animate to your FIM library by placing the plot from above within the gifski function (see below)</li>
+</ul>
+<p>This function skeleton loops over the stage values 0 to 20</p>
+<ul>
+<li>Fill in the ‘…’ with your plotting code making sure it reacts to the incoming stage value i</li>
+<li>For each stage:
+<ul>
+<li>Generate a new flood map</li>
+<li>Identify the impacted buildings</li>
+<li>Map the hillshade, floodmap, buildings, train station, and basin boundary following the same guidlines as above</li>
+<li>The plot title should also update describing the number of impacted buildings and the stage being shown</li>
+</ul></li>
+<li>Make sure your gif code is not run when knit by setting the r chunk to eval = FALSE</li>
+<li>Run the code yourself to generate data/mission-creek-fim.gif</li>
+<li>Place data/mission-creek-fim.gif in the knit document as an image</li>
+</ul>
+</div>
+</div>
+</div>
 
 
 
