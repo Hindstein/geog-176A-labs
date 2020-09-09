@@ -1,0 +1,9 @@
+---
+title: "GEOG 176A: Intro to GIS"
+author: "[Ian Hinds](https://hindstein.github.io/GEOG176A/)"
+subtitle: 'Lab 06: Terrain Analysis'
+date: "9 September 2020"
+output:
+  html_document:
+    theme: journal
+---
