@@ -199,54 +199,171 @@ Rename raster stack with the names of the band (e.g. “coastal”, “red”, �
 ```{r}
 par(mfrow = c(2,2))
 #plot Natural
-Natural = plotRGB(r, r = 4, g = 3, b = 2, main = "Natural")
+plotRGB(r, r = 4, g = 3, b = 2, axes = F, main = "Natural")
 #plot color IR
-Color_IR = plotRGB(r, 5, 4, 3, main = "IR")
+plotRGB(r,axes = F, 5, 4, 3, main = "IR")
 #plot false for water
-False_Water = plotRGB(r, 5, 7, 1, main = "False Water Focus")
+plotRGB(r, 5, 7, 1, axes = F, main = "False Water Focus")
 #False for Ag.
-Fasle_Ag = plotRGB(r, 6, 5, 2, main = "False Ag. Focus")
+plotRGB(r, 6, 5, 2, axes = F, main = "False Ag. Focus")
 ```
 
 
 ### 3.2 (Replicate Images)
 ```{r}
-plotRGB(r, r = 4, g = 3, b = 2, stretch = "lin")
-plotRGB(r, r = 4, g = 3, b = 2, stretch = "hist")
+par(mfrow = c(2,2))
+#stretch lin = 
+plotRGB(r, r = 4, g = 3, b = 2, stretch = "lin", main = "lin")
+#stretch hist = 
+plotRGB(r, r = 4, g = 3, b = 2, stretch = "hist", main = "hist")
 ```
 
 
-The purpose of applying a color sketch is ....
+The purpose of applying a color sketch is to refine color contrast, in this example, I prefer the "lin" stretch because it groups the landscapes into relative types. The rural lands are more similar in color than in the "hist" stretch.
 
 *****
 
 ## *Question 4: (Thresholding)*
-### 4.1 (Raster Algebra)
+Accurate assessment of surface water features (like flooding) have been made possible by remote sensing technology. Index methods are commonly used for surface water estimation using a threshold value.
 
+For this lab we will look at 5 unique thresholding methods for delineating surface water features from different combinations of Landsat bands.
+
+### 4.1 (Raster Algebra)
+Raster Algebra
+* Create 5 new rasters using the formulas for NDVI, NDWI, MNDWI, WRI and SWI
+* Combine those new rasters into a stacked object
+set the names of your new stack to useful values
+* Plot the new stack, using the following palette (colorRampPalette(c("blue", "white", "red"))(256))
+* Describe the 5 images. How are they simular and where do they deviate?
+
+```{r message=FALSE, warning=FALSE}
+#NDVI
+ndvi = (r$band5 - r$band4) / (r$band5 + r$band4)
+#NDWI
+ndwi = (r$band3 - r$band5) / (r$band3 + r$band5) 
+#MNDWI
+mndwi = (r$band3 - r$band6) / (r$band3 + r$band6)
+#WRI
+wri = (r$band3 + r$band4) / (r$band5 + r$band6)
+#SWI
+swi = 1 / sqrt(r$band2 - r$band6)
+
+#stack
+clr_st = stack(ndvi, ndwi, mndwi, wri, swi) %>%
+  setNames(c("NDVI", "NDWI", "MNDWI", "WRI", "SWI"))
+plot(clr_st)
+
+#plot
+plot(clr_st, col = colorRampPalette(c("blue", "white", "red"))(256))
+```
+* NDVI: represents 'normalized difference vegetation index', highlights vegetation among water and other landscape 
+* NDWI: represents 'normalized difference water index', separates water and dry land
+* MNDWI: represents 'modified normalized difference water index', highlights active or passive water sources, including potential drainage/flood points 
+* WRI: represents 'water ratio index', which clearly differentiates land and water
+* SWI: represents 'simple water index', which highlights only naural water sources
 
 ### 4.2 (Raster Thresholding)
+Here we will extract the flood extents from each of the above rasters.
+
+For this, we will use the calc function and apply a custom formula for each calculated field from step 1 that applies the threshold in a way that flooded cells are 1 and non-flooded cells are 0.
+
+* stack the binary ([0,1]) files into a new stack
+* set the names to meaningful descriptions
+* plot the stack so that floods are blue, and background is white.
+
+```{r}
+thresholding = function(x){ifelse(x <= 0, 1, NA)}
+
+thresholding(-100)
+
+flood = calc(ndvi, thresholding)
+plot(flood, col = "blue")
+```
 
 *****
 
 ## *Question 5: (Classification)*
+An alternative way to identify similar features in a continuous field is through supervised or unsupervised classification. Supervised classification groups values (cells) based on user supplied “truth” locations. Since flood events are fast-occurring there is rarely truth points for a live event. Instead developers rely on libraries of flood spectral signatures.
+
+Unsupervised classification finds statistically significant groupings within the data. In these clustering algorithms, the user specifies the number of classes and the categorization is created based on the patterns in the data.
+
+For this lab we will use a simple k-means algorithm to group raster cells with similar spectral properties.
+
+
 ### 5.1 (Set a seed)
+Anytime we want to be able to produce a consistent/reproducible result from a random process in R we need to set a seed. Do so using set.seed
 
 ### 5.2 (*kmeans*)
+* Extract the values from your 6-band raster stack with getValues
+* Check the dimensions of the extracted values with dim
+* What do the diminsions of the extracted values tell you about how the data was extracted?
+
+* Remove NA values from your extracted data with na.omit for safety
+
+* Use the kmeans clustering algorithm from the stats package to cluster the extracted raster data to a specified number of clusters k (centers). Start with 12.
+
+* Once the kmeans algorithm runs, the output will be a list of components. One of these is cluster which provides a vector of integers from (1:k) indicating the cluster to which each cell was allocated.
+
+* Create a new raster object by copying one of the original bands. 
+```{r}
+#kmeans_raster = flood$ndvi
+```
+* Set the values of the copied raster to the cluster vector from the output kmeans object. For example:
+```{r}
+#values(kmeans_raster) = kmeans_E$cluster
+```
+Try a few different clusters (k) to see how the map changes
 
 ### 5.3 (Table using *kmeans_raster*)
+To identify the flood category programatically, generate a table crossing the values of one of your binary flood rasters, with the values of you kmeans_raster. To do this, you will use the table function and pass it the values from a binary flood raster, and the values from your kmeans_raster. Here the following occurs:
+
+* table builds a contingency table counting the number of times each combination of factor levels in the input vector(s) occurs. This will give us a table quantifying how many cells with a value 1 are aligned with each of the k classes, and how many cells with a value 0 are aligned with each of the k classes.
+
+* If you pass the binary flood values as the first argument to table then the unique values (0,1) will be the rows. They will always be sorted meaning you know the flooded cells will be in the second row.
+
+* which.max() returns the index of the maximum value in a vector.
+
+* combine this information to identify the cluster in the kmeans data that coincides with the most flooded cells in the binary mask.
+
+* Once you know this value, use calc to extract the flood mask in a similar way to the thresholding you did above.
+
+* Finally use addLayer to add this new layer to your flood raster stack.
 
 *****
 
 ## *Questions 6: (Summary)*
+Our last goal is to identify how they compare.
 ### 6.1 (Total Area)
+* we will calculate the total area of the flooded cells in each image. You can use cellStats to determine the sum of each layer. Since flooded cells have a value of 1, the sum of an entire band is equivalent to the number of flooded cells. You can then use the resolution of the cell to convert counts to a flooded area.
+* print values as a kable table
 
 ### 6.2 (Summing the stack)
+* visualize the uncertainty in our classifications by summing the entire stack using calc. The higher the count in each pixel, the more certain we can be about its flooded state. For example, if a cell has a value of 6, it indicates that every method identified the cell as flooded, if it has a value of 2 then we know that two of the methods identified the cell as flooded.
+* plot your flood map using the blues9 color palette
 
 ### 6.3 (Plot stack) 
+* once you have a summed raster layer, copy it as a new layer, and set all 0 values to NA. Then map the raster with mapview. Zoom and pan around the interactive map noting that a pixel level is displayed in the upper right hand corner.
+* why are some of the cell values not an even number?
+
+This kind of work goes on regularly and is part of a couple national efforts (NOAA, USGS, FirstStreet, FEMA) to generate flood inundation libraries that contribute to better extraction and classification of realtime flood events, resource allocation during events, and damage assessments post events.
+
+Here we used landsat imagery but the same process could be implemented on drone footage, MODIS data, or other private satellite imagery.
+
+Your evaluation was based purely on the raster data structure and your ability to conceptualize rasters as vectors of data with dimensional structure. You applied simple mathematical operators (+, /, -) to the raster bands, and a kmeans clustering algorithm to the data matrix of the multiband raster 
 
 *****
 
 ## Extra Credit: Pixel Evaluation
+
+Use mapview to generate a slippy map of the Palo, Iowa bbox. Find the location shown in the above image using context clues and different base maps. Once you do, do the following:
+
+* Create a sfc object from the latitude and longitude of the mouse coordinates at the impacted location
+
+* use the st_point constructor to create an sfg; convert it to an sfc with the appropriate lat/lng CRS; and the transform to the CRS of the flood rasters
+
+* Use raster::extract to extract the binary flood values at that location from the six layer flood map stack
+
+* How many of the maps captured the flooding at that location
 
 
 
