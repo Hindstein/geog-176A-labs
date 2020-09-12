@@ -53,7 +53,7 @@ From the Palo, Iowa feature:
 - Convert that bbox object into as sfc then sf object
 
 This region defines the AOI for this analysis.
-```{r}
+```{r message=FALSE, warning=FALSE}
 bb = read.csv('../data/uscities.csv') %>%
   filter(city == "Palo") %>%
   st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
@@ -196,7 +196,7 @@ When working with Landsat imagery, a logical first step is to load an image into
 
 Rename raster stack with the names of the band (e.g. “coastal”, “red”, “green”, …)
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 par(mfrow = c(2,2))
 #plot Natural
 plotRGB(r, r = 4, g = 3, b = 2, axes = F, main = "Natural")
@@ -210,7 +210,7 @@ plotRGB(r, 6, 5, 2, axes = F, main = "False Ag. Focus")
 
 
 ### 3.2 (Replicate Images)
-```{r}
+```{r message=FALSE, warning=FALSE}
 par(mfrow = c(2,2))
 #stretch lin = 
 plotRGB(r, r = 4, g = 3, b = 2, stretch = "lin", main = "lin")
@@ -252,10 +252,12 @@ swi = 1 / sqrt(r$band2 - r$band6)
 clr_st = stack(ndvi, ndwi, mndwi, wri, swi) %>%
   setNames(c("NDVI", "NDWI", "MNDWI", "WRI", "SWI"))
 plot(clr_st)
+dim(clr_st)
 
 #plot
 plot(clr_st, col = colorRampPalette(c("blue", "white", "red"))(256))
 ```
+
 * NDVI: represents 'normalized difference vegetation index', highlights vegetation among water and other landscape 
 * NDWI: represents 'normalized difference water index', separates water and dry land
 * MNDWI: represents 'modified normalized difference water index', highlights active or passive water sources, including potential drainage/flood points 
@@ -271,10 +273,8 @@ For this, we will use the calc function and apply a custom formula for each calc
 * set the names to meaningful descriptions
 * plot the stack so that floods are blue, and background is white.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 thresholding = function(x){ifelse(x <= 0, 1, NA)}
-
-thresholding(-100)
 
 flood = calc(ndvi, thresholding)
 plot(flood, col = "blue")
@@ -289,23 +289,40 @@ Unsupervised classification finds statistically significant groupings within the
 
 For this lab we will use a simple k-means algorithm to group raster cells with similar spectral properties.
 
-
 ### 5.1 (Set a seed)
 Anytime we want to be able to produce a consistent/reproducible result from a random process in R we need to set a seed. Do so using set.seed
+
+```{r message=FALSE, warning=FALSE}
+set.seed(50)
+```
+
 
 ### 5.2 (*kmeans*)
 * Extract the values from your 6-band raster stack with getValues
 * Check the dimensions of the extracted values with dim
 * What do the diminsions of the extracted values tell you about how the data was extracted?
+```{r message=FALSE, warning=FALSE}
+band_st = getValues(clr_st)
+dim(band_st)
+#Dimensions have increased in value, extraction may have expanded on pixel value
+```
+
 
 * Remove NA values from your extracted data with na.omit for safety
+```{r message=FALSE, warning=FALSE, include=FALSE}
+band_st %>%
+  na.omit("NA")
+```
 
 * Use the kmeans clustering algorithm from the stats package to cluster the extracted raster data to a specified number of clusters k (centers). Start with 12.
 
 * Once the kmeans algorithm runs, the output will be a list of components. One of these is cluster which provides a vector of integers from (1:k) indicating the cluster to which each cell was allocated.
+ 
+* Create a new raster object by copying one of the original bands.
+```{r message=TRUE, warning=FALSE}
+#E = kmeans(band_st, 5, iter.max = 100) %>%
+ # na.omit()
 
-* Create a new raster object by copying one of the original bands. 
-```{r}
 #kmeans_raster = flood$ndvi
 ```
 * Set the values of the copied raster to the cluster vector from the output kmeans object. For example:
@@ -328,6 +345,9 @@ To identify the flood category programatically, generate a table crossing the va
 * Once you know this value, use calc to extract the flood mask in a similar way to the thresholding you did above.
 
 * Finally use addLayer to add this new layer to your flood raster stack.
+```{r}
+
+```
 
 *****
 
