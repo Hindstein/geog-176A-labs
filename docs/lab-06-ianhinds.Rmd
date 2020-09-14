@@ -27,6 +27,7 @@ This lab will build a partial or full Flood Inundation Map (FIM) Library for the
 library(sf)        # vector manipulation
 library(raster)    # raster manipulation
 library(fasterize) # "faster" raster
+library(gifski)
 library(units)
 library(whitebox)  # terrain analysis
 #install.packages("whitebox", repos="http://R-Forge.R-project.org")
@@ -119,10 +120,16 @@ build = osmdata::opq(bb) %>%
   add_osm_feature(key = "building", value = "yes") %>%
   osmdata_sf()
 
-build_pol = build$osm_polygons %>%
+build_poly = build$osm_polygons %>%
   st_intersection(basin)
 
 build_pt = build$osm_points %>%
+  st_intersection(basin)
+
+build_cent = st_centroid(build$osm_polygons) %>%
+  st_intersection(basin)
+
+rail = dplyr::filter(build_cent, amenity =="railway") %>%
   st_intersection(basin)
 
 #stream osmdata & lines
@@ -130,16 +137,8 @@ stream = osmdata::opq(bb) %>%
   add_osm_feature(key = "waterway", value = "stream") %>%
   osmdata_sf()
 
-str_line = stream$osm_lines %>%
-  st_intersection(basin)
+str_line = st_intersection(stream$osm_lines, basin)
 
-#railroad osmdata & point
-rails = osmdata::opq(bb) %>%
-  add_osm_feature(key = "railway", value = "station") %>%
-  osmdata_sf()
-
-rail_pt = rails$osm_points %>%
-  st_intersection(basin)
 ```
 
 
@@ -185,7 +184,7 @@ First, we want to rasterize our flowlines to the grid of our elevation raster. R
 * Once buffered, use fasterize::fasterize to create your river network raster using the elevation grid as the template
 
 * Write the river raster to your data folder.
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 #convert LINESTRING to MULTIPOLYGON
 stream_buffer = str_line %>%
   st_transform(5070) %>%
@@ -236,6 +235,18 @@ To correct for this we need to add the 3.69 foot offset to our current HAND rast
 * Then, ensure that if the cell has a value of 1 in the river raster then its HAND value is set to 0.
 * Save the new, offset raster to your data folder
 ```{r}
+#read and offset handrat + 3.69
+off_handrat = handrat + 3.69 
+
+#read and select riverat values = 1 
+riverat_one = which(values(riverat) == 1)
+
+# If riverat = 1, it is 0 on handrat
+values(off_handrat)[riverat_one] = 0 
+
+#write updated handrat
+writeRaster(off_handrat, '../data/off_handrat.tif', overwrite = T)
+
 
 ```
 
@@ -255,11 +266,28 @@ This means that every cell in the HAND raster with a HAND value less than or equ
 * Plot your hillshade as you did above
 * Overlay the flood map using the rev(blues9) color palette and add = TRUE
 * Plot the railway station as a point of reference colored in green, with cex = 1, and pch = 16
-```{r}
+```{r message=FALSE, warning=FALSE}
+#read in off handrat
+floodrat = raster('../data/off_handrat.tif')
 
+#set flood values > 10.02 to "NA"
+values(floodrat)[which(values(floodrat) > 10.02)] = NA
+
+#plot hillshade
+par(mfrow=c(1,2))
+plot(hill, col = gray.colors(256, alpha = 0.5), box = F, legend = F)
+plot(floodrat, col = rev(blues9), add = T, box = F, axes = F, legend = F)
+plot(rail, col = "green", add = T, box = F, cex = 2, pch = 16)
+plot(basin, add = T)
+
+plot(hill, col = gray.colors(256, alpha = 0.5), box = F, legend = F, main = "SB Watershed & Rail Station")
+plot(str_line, col = rev(blues9), add = T, box = F, axes = F, legend = F)
+plot(rail, col = "green", add = T, box = F, cex = 2, pch = 16)
+plot(basin, add = T)
 ```
 
 *Does that map look accurate?
+* *No, flood layer is not correct, and hides the hillshade . The railway station point is also very large.*
 
 #### Estimate the impacts
 With a defined map, we want to determine the number of buildings impacted by this event.
@@ -274,6 +302,24 @@ Then, starting with overlaid hillshade/flood map:
 * Add the railroad as a reference point, colored in grean, with cex = 1 and pch = 16
 * In the title (main = “…”) detail the number of impacted structures and stage level programatically using paste
 ```{r message=FALSE, warning=FALSE}
+#extract flood depth of impacted buidings
+build_fl = raster::extract(floodrat, build_cent)
+
+# determine number of impacted buildings
+build_cent$flooded = as.factor(ifelse(!is.na(build_fl), 1, 0))
+
+#plot with all layers
+plot(hill, col = gray.colors(256, alpha = .5), box = FALSE, 
+     main = paste('2017 Santa Barbara Flood:', sum(build_cent$flooded==1) ,'Impacted Structures'), legend = FALSE)
+plot(str_line, col = rev(blues9), box = FALSE,  add = TRUE, legend = FALSE)
+plot(rail, col = 'green', box = FALSE, add = TRUE, cex = 1, pch = 16)
+plot(basin, box = FALSE, add = TRUE)
+plot(build_cent, col = c('black','red')[build_cent$flooded], box = FALSE, add = TRUE, cex = .08, pch = 16)
+legend(x = 'right', legend = c('Flooded', 'Not Impacted'), 
+       col = c('black','red'), cex = .75, pch = 16)
+
+#floodrat is not working out, subbing in strm_line as alternate for future
+
 
 ```
 
@@ -287,19 +333,41 @@ You have been asked to create a FIM library for Mission Creek for stage values r
 
 Last, the city is interested in zooming in on the lower portion of the basin contained within the “Santa Barbara” bounding box (defined in OSM). You can get this boundary using the AOI package:
 ```{r message=FALSE, warning=FALSE}
-#sb = AOI::aoi_get("Santa Barbara")
+#set sb as AOI
+sb = AOI::aoi_get("Santa Barbara") 
 ```
 Once you have your AOI:
 
 * crop/clip the basin, HAND raster, and Hillshade raster to the AOI extent
 * Generate/animate to your FIM library by placing the plot from above within the gifski function (see below)
-```{r eval=FALSE, include=FALSE}
-#gifski::save_gif({
- # for(i in 0:20) {
-    #...
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#crop basin, hand, and hillshade into AOI
+
+build_crop = st_intersection(basin, build_cent)
+hand = off_handrat %>%
+  crop(sb)
+hill_crop = raster('../data/hillsh.tif') %>%
+  crop(sb)
+
+#Generate gif with Previous plot and new layers
+
+#save_gif({
+ # for(i in 1:20) {
+  #  flooder = hand
+   # values(flooder)[which(values(flooder) > i)] = NA
+    #build_flood = raster::extract(flooder, build_crop)
+    #build_crop$flooded = as.factor(ifelse(!is.na(build_flood), 1, 0))
+    #plot(hill_crop, col = gray.colors(256, alpha = .5), box = F, 
+    # main = paste('Flood:', sum(build_fl$flooded==1) ,'Impacted Structures'), legend = F)
+#plot(flooder, col = rev(blues9), box = F,  add = T, legend = F)
+#plot(rail, col = 'green', box = F, add = T, cex = 1, pch = 16)
+#plot(basin, box = F, add = T)
+#plot(build_cent, col = c('black','red')[build_flood$flooded], box = F, add = T, cex = .15, pch = 16)
+#legend(x = 'left', legend = c('Flooded', 'Not Impacted'), 
+ #      col = c('black','true'), cex = .05, pch = 16)
 #  }
-#}, gif_file = "data/mission-creek-fim.gif",
-#   width = 600, height = 600, 
+#}, gif_file = "../data/mission-creek-fim.gif",
+ #  width = 600, height = 600, 
 #   delay = .7, loop = TRUE)
 ```
 
