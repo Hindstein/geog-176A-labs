@@ -315,7 +315,7 @@ plot(str_line, col = rev(blues9), box = FALSE,  add = TRUE, legend = FALSE)
 plot(rail, col = 'green', box = FALSE, add = TRUE, cex = 1, pch = 16)
 plot(basin, box = FALSE, add = TRUE)
 plot(build_cent, col = c('black','red')[build_cent$flooded], box = FALSE, add = TRUE, cex = .08, pch = 16)
-legend(x = 'right', legend = c('Flooded', 'Not Impacted'), 
+legend(x = 'right', legend = c('Not Impacted', 'Flooded'), 
        col = c('black','red'), cex = .75, pch = 16)
 
 #floodrat is not working out, subbing in strm_line as alternate for future
