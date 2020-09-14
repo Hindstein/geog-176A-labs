@@ -280,7 +280,7 @@ plot(floodrat, col = rev(blues9), add = T, box = F, axes = F, legend = F)
 plot(rail, col = "green", add = T, box = F, cex = 2, pch = 16)
 plot(basin, add = T)
 
-plot(hill, col = gray.colors(256, alpha = 0.5), box = F, legend = F, main = "SB Watershed & Rail Station")
+plot(hill, col = gray.colors(256, alpha = 0.5), box = F, legend = F, main = "Mission Creek & Rail Station")
 plot(str_line, col = rev(blues9), add = T, box = F, axes = F, legend = F)
 plot(rail, col = "green", add = T, box = F, cex = 2, pch = 16)
 plot(basin, add = T)
