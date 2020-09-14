@@ -127,7 +127,7 @@ Here we will focus on calculating the distance of each USA city to (1) the natio
 ### __2.1 - Distance to USA Border (coastline or national) (km)__
 We are interested in the distance of each USA city to the USA border. To do this we need all states to act as a single unit. The state boundaries will be converted into a *MULTILINESTRING* geometry in which the boundaries are **resolved**. Using states object, storing in the cities data,frame, a table will be produces through (**knitr**) documenting the five farthest cities from a state border.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 comb_multi = st_combine(conus) %>%
   st_cast("MULTILINESTRING")
 

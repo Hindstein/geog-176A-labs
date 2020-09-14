@@ -348,7 +348,7 @@ To identify the flood category programatically, generate a table crossing the va
 * Once you know this value, use calc to extract the flood mask in a similar way to the thresholding you did above.
 
 * Finally use addLayer to add this new layer to your flood raster stack.
-```{r}
+```{r message=FALSE, warning=FALSE}
 
 ```
 

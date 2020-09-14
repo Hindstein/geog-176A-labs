@@ -507,7 +507,7 @@ rail_pt = rails$osm_points %&gt;%
 <p>On top of the hillshade, plot the basin boundary and the river flowlines.</p>
 <pre class="r"><code>#create hillshade tif
 wbt_hillshade(&#39;../data/basin-elev.tif&#39;, &#39;../data/hillsh.tif&#39;)</code></pre>
-<pre><code>## [1] &quot;hillshade - Elapsed Time (excluding I/O): 0.12s&quot;</code></pre>
+<pre><code>## [1] &quot;hillshade - Elapsed Time (excluding I/O): 0.15s&quot;</code></pre>
 <pre class="r"><code># read in hillshade data with color
 hill = raster(&#39;../data/hillsh.tif&#39;, overwrite = T)
 

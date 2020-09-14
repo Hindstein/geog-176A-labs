@@ -29,7 +29,7 @@ Prepare five tessellated surfaces from CONUS and write a function to plot them i
 * get an sf object of US counties (USAboundaries::us_counties())
 * remove those not in CONUS
 * transform the data to EPSG:5070
-```{r}
+```{r message=FALSE, warning=FALSE}
 counties = USAboundaries::us_counties() %>%
   filter(!state_name %in% c("Hawaii",
                             "Alaska",
@@ -87,7 +87,8 @@ hexgrid = st_make_grid(counties, n=70, square=FALSE) %>%
 ### *Step 1.4 (Plot Examples of Tessellations and Trim)*
 - Plot all defined grids and cut regional boundaries to CONUS border
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+par(mrow = c(2,2))
 # Voroni Grid
 plot(v_grid)
 
@@ -150,7 +151,7 @@ plot_pip(counties, tri_grid) %>%
 ```
 
 ### *Step 1.7*
-```{r}
+```{r message=FALSE, warning=FALSE}
 # Function does not reach desired outcome, cannot properly plot all tessellations
 ```
 
@@ -170,7 +171,7 @@ write out a function to summarize our tessellated surfaces
   * the standard deviation of the features in arg1
   * the total area (km2) of arg1
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 area_data = function(data, title){
     counties %>%
     st_area(counties) %>%
@@ -226,7 +227,7 @@ X2019_MOD_DAMS_U <- read_excel("../data/2019_MOD_DAMS_U.xlsx") %>%
 ### *Step 3.2*
 Make a Point in Polygon function
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 pip3 = function(points, polygon, id){
   st_join(points, polygon) %>%
     st_drop_geometry() %>%
@@ -245,14 +246,14 @@ Apply the Point in Polygon function to the 5 tessellated surfaces
 * polygons are the respective tessellations
 * the id column is the name of the id columns 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # pip3(X2019DAMS, v_grid, id)
 ```
 
 
 
 ### *Step 3.4*
-```{r}
+```{r message=FALSE, warning=FALSE}
 plot_pip2 = function(data, title){
   ggplot() +
     geom_sf(data = data, title = title, aes(fill = count(n), col = NA),  size = .2) +
@@ -268,7 +269,7 @@ plot_pip2 = function(data, title){
 
 ### *Step 3.5*
 Apply plot_pip2 to the 5 tessellated surfaces
-```{r}
+```{r message=FALSE, warning=FALSE}
 #plot_pip2(X2019DAMS, "tri_grid")
 ```
 

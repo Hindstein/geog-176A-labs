@@ -13,7 +13,7 @@ output:
 * *readxl*
 * *zoo*
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
 library(knitr)
 library(readxl)
@@ -23,7 +23,7 @@ library(zoo)
 ## COVID Data URL (NYTimes)
 https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
 url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
 covid = read_csv(url)
@@ -89,7 +89,7 @@ knitr::kable(most_new_cases,
 ```
 
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 #Open population estimate excel
 library(readxl)
 popest <- read_excel("C:/Users/Ianhi/OneDrive/Desktop/github2/labs/data/popest.xls")

@@ -273,7 +273,7 @@ Then, starting with overlaid hillshade/flood map:
   * All should be plotted with pch = 16 and cex = .08.
 * Add the railroad as a reference point, colored in grean, with cex = 1 and pch = 16
 * In the title (main = “…”) detail the number of impacted structures and stage level programatically using paste
-```{r}
+```{r message=FALSE, warning=FALSE}
 
 ```
 
@@ -286,7 +286,7 @@ Flood Inundation Map libraries help communities apply real-time stream data and 
 You have been asked to create a FIM library for Mission Creek for stage values ranging from 0 to 20 feet. You have also been asked to animate this library as a GIF file showing the hillshade, flood level, and impacted buildings for each stage.
 
 Last, the city is interested in zooming in on the lower portion of the basin contained within the “Santa Barbara” bounding box (defined in OSM). You can get this boundary using the AOI package:
-```{r}
+```{r message=FALSE, warning=FALSE}
 #sb = AOI::aoi_get("Santa Barbara")
 ```
 Once you have your AOI:
