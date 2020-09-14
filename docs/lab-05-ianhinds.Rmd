@@ -27,6 +27,7 @@ library(getlandsat) # keyless Landsat data (2013-2017)
 library(osmdata)
 library(sf) # Vector data processing
 library(mapview) # Rapid Interactive visualization
+library(rgdal)
 ```
 
 Remote Sensing/Image Analysis begins with usually the same steps:
@@ -160,9 +161,9 @@ Right now we have 6 files we want, 1 for each band. So we want to apply lsat_ima
 We want to apply the lsat_image function over our URL paths to return a vector of local file paths … so we can use sapply where the files are the input and the FUN = lsat_image
 
 ```{r message=FALSE, warning=FALSE}
-st = sapply(files, lsat_image)
+#st = sapply(files, lsat_image)
 
-s = stack(st) %>% setNames(c(paste0("band", 1:6)))
+#s = stack(st) %>% setNames(c(paste0("band", 1:6)))
 s
 ```
 
@@ -276,7 +277,9 @@ For this, we will use the calc function and apply a custom formula for each calc
 ```{r message=FALSE, warning=FALSE}
 thresholding = function(x){ifelse(x <= 0, 1, NA)}
 
-flood = calc(ndvi, thresholding)
+flood = calc(clr_st, thresholding) %>%
+  na.omit("NA")
+
 plot(flood, col = "blue")
 ```
 

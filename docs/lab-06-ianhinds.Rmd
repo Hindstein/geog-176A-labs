@@ -27,7 +27,9 @@ This lab will build a partial or full Flood Inundation Map (FIM) Library for the
 library(sf)        # vector manipulation
 library(raster)    # raster manipulation
 library(fasterize) # "faster" raster
+library(units)
 library(whitebox)  # terrain analysis
+#install.packages("whitebox", repos="http://R-Forge.R-project.org")
 
 # Data libraries
 library(osmdata)   # OSM API
@@ -65,8 +67,11 @@ Where you fill in the SITEIDHERE with the appropriate gage ID.
 
 The geojson stored at that URL can then be read directly into R (as a simple feature object) using read_sf().
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #Go ahead and load the basin into your working session.
+
+basin = read_sf("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/USGS-11119750/basin/")
+write_sf(basin, dsn = "../data/USGS-11119750.gpkg")
 ```
 
 
@@ -77,6 +82,20 @@ Once you have the basin boundary, get elevation data using elevatr and a zoom le
 
 * Write the raster to your data folder as a tif file (use writeRaster)
 
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+# pull elevation data
+basinelev = elevatr::get_elev_raster(basin, z = 13, expand = NULL) %>%
+  crop(basin) %>%
+  mask(basin)
+
+#assign values equivalent to ft (1m = 3.281 ft)
+basinelev_ft = basinelev*3.281
+
+#write raster data
+writeRaster(basinelev_ft, "../data/basin-elev.tif", overwrite = TRUE)
+```
+
+
 #### Buildings and river-network data
 Within the basin we want to find the exposed buildings, and the river flowpaths that carry water.
 
@@ -86,6 +105,43 @@ Use OSM to query building and stream data
 
   * Additionally, extract the railway POINT from the buildings for latter plotting
 * For the streams, keep all LINESTRING elements and clip them to the basin boundary
+```{r message=FALSE, warning=FALSE}
+#assign basin-elev as a raster
+basin_elev = raster("../data/basin-elev.tif")
+
+#box basin
+bb = st_bbox(basin) %>%
+  st_as_sfc() %>%
+  st_transform(4326)
+
+#building osmdata, polygons, points
+build = osmdata::opq(bb) %>%
+  add_osm_feature(key = "building", value = "yes") %>%
+  osmdata_sf()
+
+build_pol = build$osm_polygons %>%
+  st_intersection(basin)
+
+build_pt = build$osm_points %>%
+  st_intersection(basin)
+
+#stream osmdata & lines
+stream = osmdata::opq(bb) %>%
+  add_osm_feature(key = "waterway", value = "stream") %>%
+  osmdata_sf()
+
+str_line = stream$osm_lines %>%
+  st_intersection(basin)
+
+#railroad osmdata & point
+rails = osmdata::opq(bb) %>%
+  add_osm_feature(key = "railway", value = "station") %>%
+  osmdata_sf()
+
+rail_pt = rails$osm_points %>%
+  st_intersection(basin)
+```
+
 
 ### Terrain Analysis
 For your HAND flood analysis, you will need 2 new terrain based datasets:
@@ -103,19 +159,44 @@ Once processed, read your hillshade tif file into R and plot it using the color 
 
 On top of the hillshade, plot the basin boundary and the river flowlines.
 
+```{r message=FALSE, warning=FALSE}
+#create hillshade tif
+wbt_hillshade('../data/basin-elev.tif', '../data/hillsh.tif')
+
+# read in hillshade data with color
+hill = raster('../data/hillsh.tif', overwrite = T)
+
+#plot hill/stream/basin
+plot(hill, col = gray.colors(256, alpha = 0.5), box = F, legend = F, axes = F)
+plot(str_line, col = "blue", add = T)
+plot(basin, add = T)
+```
+
 #### Height Above Nearest Drainage
 Height Above Nearest Drainage is a hydrologically normalized DEM in which each cell represents the height above the nearest cell designated as a river. Therefore, to create a HAND product we need a representation of the DEM, and the river network on the same raster grid.
 
-If we think of the basin as a bathtub, then the height of the water in the channel will spread evenly across the landscape submerging any cell with a HAND value less then the height of the water in the channel. That is, if the height of the water (stage) in a river is 4 feet, any cell with a HAND value less then 4 will be flooded. This idea is illustrated below:
+If we think of the basin as a bathtub, then the height of the water in the channel will spread evenly across the landscape submerging any cell with a HAND value less then the height of the water in the channel. That is, if the height of the water (stage) in a river is 4 feet, any cell with a HAND value less then 4 will be flooded.
 
 ##### Creating the river raster
 First, we want to rasterize our flowlines to the grid of our elevation raster. Remember that fasterize works only with POLYGON or MULTIPOLYGON objects. Currently our river network is a LINESTRING.
 
-To add an area to our flowlines, buffer them using a distance of 10 meters. Think carefully about the process you need to do this with respect to CRS.
+* To add an area to our flowlines, buffer them using a distance of 10 meters. Think carefully about the process you need to do this with respect to CRS.
 
-Once buffered, use fasterize::fasterize to create your river network raster using the elevation grid as the template
+* Once buffered, use fasterize::fasterize to create your river network raster using the elevation grid as the template
 
-Write the river raster to your data folder.
+* Write the river raster to your data folder.
+```{r}
+#convert LINESTRING to MULTIPOLYGON
+stream_buffer = str_line %>%
+  st_transform(5070) %>%
+  st_buffer(5) %>%
+  st_transform(4326)
+
+#fasterize for river network and save
+riverat = fasterize(stream_buffer, basin_elev)
+writeRaster(riverat, '../data/riverat.tif', overwrite = TRUE)
+```
+
 
 ##### Creating the hydrologically corrected surface
 We will use the whitebox tool wbt_breach_depressions to correct errors in our DEM/elevation grid. This utility runs Lindsay’s (2016) algorithm to breach (fill) all of the depressions in a DEM.
@@ -123,11 +204,24 @@ We will use the whitebox tool wbt_breach_depressions to correct errors in our DE
 This utility requires two arguments, (1) the local path to the elevation grid, and (2) a path to write the output raster.
 
 Execute this utility to create a conditioned elevation product.
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#breach depression
+wbt_breach_depressions('../data/basin-elev.tif', '../data/breach.tif')
+```
 
 ##### Creating the HAND raster
 wbt_elevation_above_stream can be used to generate a HAND raster. It requires three arguments: (1) the path to the conditioned DEM, (2) the path to the rasterized river networks, and (3) a output location to write the final file.
 
 Execute this utility to create a final HAND raster.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#elevation above stream
+wbt_elevation_above_stream('../data/breach.tif', '../data/basin-elev.tif', '../data/hand.tif' )
+
+#make raster of hand
+handrat = raster('../data/hand.tif')
+```
+
 
 #### Correcting to local reference datum
 Great we now have a HAND raster that uses the river network as a local reference datum. The problem is that our recorded stage values, are not referenced to that local datum. Instead, the USGS records stage as the height above a local control point and not to the bottom of the river.
@@ -141,6 +235,10 @@ To correct for this we need to add the 3.69 foot offset to our current HAND rast
 * **Add** the offset to the entire HAND raster
 * Then, ensure that if the cell has a value of 1 in the river raster then its HAND value is set to 0.
 * Save the new, offset raster to your data folder
+```{r}
+
+```
+
 
 ### 2017 Impact Assessment
 #### Map the flood
@@ -157,6 +255,9 @@ This means that every cell in the HAND raster with a HAND value less than or equ
 * Plot your hillshade as you did above
 * Overlay the flood map using the rev(blues9) color palette and add = TRUE
 * Plot the railway station as a point of reference colored in green, with cex = 1, and pch = 16
+```{r}
+
+```
 
 *Does that map look accurate?
 
@@ -172,6 +273,10 @@ Then, starting with overlaid hillshade/flood map:
   * All should be plotted with pch = 16 and cex = .08.
 * Add the railroad as a reference point, colored in grean, with cex = 1 and pch = 16
 * In the title (main = “…”) detail the number of impacted structures and stage level programatically using paste
+```{r}
+
+```
+
 
 ### Flood Inudation Map library
 Flood Inundation Map libraries help communities apply real-time stream data and National Weather Service flood forecasts to form a two-dimensional flood warning system. These 2D warning systems help estimate the extent of a flood and identify at-risk areas and resources in advance of floodwaters arriving.
@@ -182,7 +287,7 @@ You have been asked to create a FIM library for Mission Creek for stage values r
 
 Last, the city is interested in zooming in on the lower portion of the basin contained within the “Santa Barbara” bounding box (defined in OSM). You can get this boundary using the AOI package:
 ```{r}
-sb = AOI::aoi_get("Santa Barbara")
+#sb = AOI::aoi_get("Santa Barbara")
 ```
 Once you have your AOI:
 
